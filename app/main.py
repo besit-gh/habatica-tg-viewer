@@ -43,12 +43,9 @@ async def main() -> None:
 
     dp.include_router(profile_router)
     dp.include_router(tasks_router)
+    # Start polling immediately. The allowlisted user's /start performs one explicit
+    # Habitica connectivity check and still opens the menu if Habitica is unavailable.
     async with api:
-        try:
-            await api.get_user()
-            logging.getLogger(__name__).info("Habitica startup check succeeded")
-        except HabiticaError as exc:
-            logging.getLogger(__name__).warning("Habitica startup check failed: %s", type(exc).__name__)
         try:
             await dp.start_polling(bot)
         finally:
