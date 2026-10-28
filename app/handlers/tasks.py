@@ -8,7 +8,13 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from app.formatters import format_task, task_type_label
 from app.habitica_api import HabiticaAPI, HabiticaError
-from app.keyboards import delete_confirmation_keyboard, task_actions_keyboard, task_list_keyboard, task_types_keyboard
+from app.keyboards import (
+    delete_confirmation_keyboard,
+    task_actions_keyboard,
+    task_filter_keyboard,
+    task_list_keyboard,
+    task_types_keyboard,
+)
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -84,6 +90,53 @@ async def list_tasks(callback: CallbackQuery, state: FSMContext, habitica_api: H
                 reply_markup=task_list_keyboard(tasks, task_type, offset, total),
             )
     except HabiticaError as exc:
+        await _safe_error(callback, exc)
+
+
+@router.callback_query(F.data.startswith("filters:"))
+async def show_filters(callback: CallbackQuery) -> None:
+    await callback.answer()
+    task_type = (callback.data or "").split(":", 1)[1]
+    if task_type in VALID_TYPES and callback.message:
+        await callback.message.answer("Выбери фильтр:", reply_markup=task_filter_keyboard(task_type))
+
+
+@router.callback_query(F.data.startswith("filter:"))
+async def apply_filter(callback: CallbackQuery, habitica_api: HabiticaAPI) -> None:
+    await callback.answer()
+    parts = (callback.data or "").split(":")
+    if len(parts) < 3 or parts[1] not in VALID_TYPES:
+        return
+    task_type, mode = parts[1], parts[2]
+    try:
+        tasks = await habitica_api.get_tasks(task_type)
+        if mode == "completed":
+            matches = [task for task in tasks if task.get("completed") is True]
+        elif mode == "pending":
+            matches = [task for task in tasks if task.get("completed") is False]
+        elif mode == "priority" and len(parts) == 4:
+            priority = float(parts[3])
+            matches = [task for task in tasks if task.get("priority") is not None and float(task["priority"]) == priority]
+        else:
+            matches = tasks
+        if not callback.message:
+            return
+        if not matches:
+            await callback.message.answer("По этому фильтру задач не найдено.")
+            return
+        buttons = []
+        for task in matches[:15]:
+            task_id = task.get("_id") or task.get("id")
+            buttons.append([InlineKeyboardButton(
+                text=str(task.get("text") or "Без названия")[:45],
+                callback_data=f"task:{task_type}:{task_id}",
+            )])
+        buttons.append([InlineKeyboardButton(text="← К фильтрам", callback_data=f"filters:{task_type}")])
+        await callback.message.answer(
+            f"Найдено: {len(matches)}. Показаны первые {min(15, len(matches))}.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+        )
+    except (HabiticaError, ValueError) as exc:
         await _safe_error(callback, exc)
 
 
