@@ -71,16 +71,20 @@ def delete_confirmation_keyboard(task_id: str, task_type: str) -> InlineKeyboard
 
 
 def task_filter_keyboard(task_type: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Все", callback_data=f"filter:{task_type}:all")],
-        [InlineKeyboardButton(text="Выполненные", callback_data=f"filter:{task_type}:completed")],
-        [InlineKeyboardButton(text="Не выполненные", callback_data=f"filter:{task_type}:pending")],
-        [InlineKeyboardButton(text="Лёгкая сложность", callback_data=f"filter:{task_type}:priority:1")],
-        [InlineKeyboardButton(text="Средняя сложность", callback_data=f"filter:{task_type}:priority:1.5")],
-        [InlineKeyboardButton(text="Сложная", callback_data=f"filter:{task_type}:priority:2")],
-        [InlineKeyboardButton(text="← К списку", callback_data=f"list:{task_type}")],
-    ])
-
+    rows = [[InlineKeyboardButton(text="Все", callback_data=f"filter:{task_type}:all")]]
+    if task_type not in {"rewards", "completedTodos"}:
+        rows.extend([
+            [InlineKeyboardButton(text="Выполненные", callback_data=f"filter:{task_type}:completed")],
+            [InlineKeyboardButton(text="Не выполненные", callback_data=f"filter:{task_type}:pending")],
+        ])
+    if task_type != "completedTodos":
+        rows.extend([
+            [InlineKeyboardButton(text="Лёгкая сложность", callback_data=f"filter:{task_type}:priority:1")],
+            [InlineKeyboardButton(text="Средняя сложность", callback_data=f"filter:{task_type}:priority:1.5")],
+            [InlineKeyboardButton(text="Сложная", callback_data=f"filter:{task_type}:priority:2")],
+        ])
+    rows.append([InlineKeyboardButton(text="← К списку", callback_data=f"list:{task_type}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def profile_sections_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
