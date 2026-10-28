@@ -10,6 +10,7 @@ def task_types_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Привычки", callback_data="list:habits"), InlineKeyboardButton(text="Ежедневные", callback_data="list:dailys")],
         [InlineKeyboardButton(text="Разовые", callback_data="list:todos"), InlineKeyboardButton(text="Награды", callback_data="list:rewards")],
+        [InlineKeyboardButton(text="Выполненные разовые", callback_data="list:completedTodos")],
     ])
 
 
@@ -23,13 +24,15 @@ def task_list_keyboard(tasks: list[dict], prefix: str = "task") -> InlineKeyboar
 
 
 def task_actions_keyboard(task_id: str, task_type: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Отправить карточку", callback_data=f"notify:{task_type}:{task_id}")],
-        [InlineKeyboardButton(text="Выполнено (+)", callback_data=f"complete:{task_type}:{task_id}")],
-        [InlineKeyboardButton(text="Изменить название", callback_data=f"edit:{task_type}:{task_id}")],
+    rows = [[InlineKeyboardButton(text="Отправить карточку", callback_data=f"notify:{task_type}:{task_id}")]]
+    if task_type != "completedTodos":
+        rows.append([InlineKeyboardButton(text="Выполнено (+)", callback_data=f"complete:{task_type}:{task_id}")])
+        rows.append([InlineKeyboardButton(text="Изменить название", callback_data=f"edit:{task_type}:{task_id}")])
+    rows.extend([
         [InlineKeyboardButton(text="Удалить…", callback_data=f"deleteask:{task_type}:{task_id}")],
         [InlineKeyboardButton(text="← К списку", callback_data=f"list:{task_type}")],
     ])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def delete_confirmation_keyboard(task_id: str, task_type: str) -> InlineKeyboardMarkup:
