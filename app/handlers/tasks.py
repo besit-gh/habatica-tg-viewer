@@ -20,6 +20,7 @@ from app.keyboards import (
 router = Router()
 logger = logging.getLogger(__name__)
 VALID_TYPES = {"habits", "dailys", "todos", "rewards", "completedTodos"}
+IN_FLIGHT_OPERATIONS: set[str] = set()
 
 
 class TaskForm(StatesGroup):
@@ -228,11 +229,17 @@ async def complete_task(callback: CallbackQuery, habitica_api: HabiticaAPI) -> N
     parts = (callback.data or "").split(":", 2)
     if len(parts) != 3 or parts[1] not in VALID_TYPES:
         return
+    if parts[1] in {"rewards", "completedTodos"}:
+        if callback.message:
+            await callback.message.answer("Для этого типа задачи действие недоступно.")
+        return
+    operation_key = f"score:{parts[2]}"
+    if operation_key in IN_FLIGHT_OPERATIONS:
+        if callback.message:
+            await callback.message.answer("Эта задача уже обрабатывается.")
+        return
+    IN_FLIGHT_OPERATIONS.add(operation_key)
     try:
-        if parts[1] in {"rewards", "completedTodos"}:
-            if callback.message:
-                await callback.message.answer("Для этого типа задачи действие недоступно.")
-            return
         current = await habitica_api.get_task(parts[2])
         if not task_type_matches(current, parts[1]):
             if callback.message:
@@ -245,9 +252,11 @@ async def complete_task(callback: CallbackQuery, habitica_api: HabiticaAPI) -> N
         result = await habitica_api.score_task(parts[2], "up")
         task = result if isinstance(result, dict) and result.get("text") else await habitica_api.get_task(parts[2])
         if callback.message:
-            await callback.message.answer("Действие выполнено.\n" + format_task(task, parts[1]), parse_mode="HTML")
+            await callback.message.answer("Действие выполнено.\\n" + format_task(task, parts[1]), parse_mode="HTML")
     except HabiticaError as exc:
         await _safe_error(callback, exc)
+    finally:
+        IN_FLIGHT_OPERATIONS.discard(operation_key)
 
 
 @router.callback_query(F.data.startswith("deleteask:"))
@@ -391,6 +400,11 @@ async def create_with_priority(
         if callback.message:
             await callback.message.answer("Черновик задачи потерян. Начни создание заново.")
         return
+    operation_key = f"create:{callback.from_user.id}"
+    if operation_key in IN_FLIGHT_OPERATIONS:
+        if callback.message:
+            await callback.message.answer("Создание задачи уже выполняется.")
+        return
     payload: dict[str, Any] = {
         "type": CREATE_TYPES[data["create_type"]],
         "text": data["create_title"],
@@ -398,16 +412,20 @@ async def create_with_priority(
     }
     if data.get("create_notes"):
         payload["notes"] = data["create_notes"]
+    IN_FLIGHT_OPERATIONS.add(operation_key)
+    # Clear the draft before sending the mutation to prevent duplicate callbacks.
+    await state.clear()
     try:
         task = await habitica_api.create_task(payload)
-        await state.clear()
         if callback.message:
             if not task.get("text"):
                 await callback.message.answer("Задача создана. Нажми «задания», чтобы обновить список.")
             else:
                 await callback.message.answer(
-                    "Задача создана.\n" + format_task(task, data["create_type"]),
+                    "Задача создана.\\n" + format_task(task, data["create_type"]),
                     parse_mode="HTML",
                 )
     except HabiticaError as exc:
         await _safe_error(callback, exc)
+    finally:
+        IN_FLIGHT_OPERATIONS.discard(operation_key)
