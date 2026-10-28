@@ -15,7 +15,7 @@ Telegram-бот для управления своим Habitica из лично�
 
 1. Установи Python 3.11 или новее, Git и создай Telegram-бота через [@BotFather](https://t.me/BotFather). Сохрани выданный токен.
 2. В настройках Habitica открой раздел API и скопируй **User ID** и **API Token**. Это разные значения.
-3. Скопируй свой числовой Telegram ID из надёжного способа проверки собственного ID. Впиши его в `ALLOWED_TELEGRAM_USER_ID`.
+3. Узнай свой числовой Telegram ID, например через `@userinfobot`, и впиши его в `ALLOWED_TELEGRAM_USER_ID`. Передавай этому боту только ID, никогда не отправляй туда токены Habitica или Telegram.
 4. Открой терминал Ubuntu/WSL2 и выполни команды:
 
 ```bash
