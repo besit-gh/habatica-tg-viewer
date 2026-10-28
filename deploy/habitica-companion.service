@@ -1,0 +1,23 @@
+[Unit]
+Description=Habitica Companion Telegram Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=habitica
+Group=habitica
+WorkingDirectory=/opt/habitica-companion
+EnvironmentFile=/opt/habitica-companion/.env
+ExecStart=/opt/habitica-companion/.venv/bin/python -m app.main
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/habitica-companion
+
+[Install]
+WantedBy=multi-user.target
