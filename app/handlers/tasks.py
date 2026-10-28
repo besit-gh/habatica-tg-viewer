@@ -19,6 +19,7 @@ class TaskForm(StatesGroup):
     create_type = State()
     create_title = State()
     create_notes = State()
+    create_priority = State()
     edit_title = State()
     search_name = State()
 
@@ -290,22 +291,57 @@ async def create_title(message: Message, state: FSMContext) -> None:
 
 
 @router.message(TaskForm.create_notes)
-async def create_notes(message: Message, state: FSMContext, habitica_api: HabiticaAPI) -> None:
+async def create_notes(message: Message, state: FSMContext) -> None:
     notes = (message.text or "").strip()
     if notes == "/cancel":
         await state.clear()
         await message.answer("Создание отменено.")
         return
+    await state.update_data(create_notes="" if notes == "-" else notes)
+    await state.set_state(TaskForm.create_priority)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Пустяковая", callback_data="newpriority:0.1"),
+         InlineKeyboardButton(text="Лёгкая", callback_data="newpriority:1")],
+        [InlineKeyboardButton(text="Средняя", callback_data="newpriority:1.5"),
+         InlineKeyboardButton(text="Сложная", callback_data="newpriority:2")],
+    ])
+    await message.answer("Выбери сложность задачи:", reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("newpriority:"))
+async def create_with_priority(
+    callback: CallbackQuery, state: FSMContext, habitica_api: HabiticaAPI
+) -> None:
+    await callback.answer()
+    try:
+        priority = float((callback.data or "").split(":", 1)[1])
+    except ValueError:
+        return
+    if priority not in {0.1, 1.0, 1.5, 2.0}:
+        return
     data = await state.get_data()
-    payload: dict[str, Any] = {"type": data["create_type"], "text": data["create_title"]}
-    if notes and notes != "-":
-        payload["notes"] = notes
+    if not data.get("create_type") or not data.get("create_title"):
+        await state.clear()
+        if callback.message:
+            await callback.message.answer("Черновик задачи потерян. Начни создание заново.")
+        return
+    payload: dict[str, Any] = {
+        "type": data["create_type"],
+        "text": data["create_title"],
+        "priority": priority,
+    }
+    if data.get("create_notes"):
+        payload["notes"] = data["create_notes"]
     try:
         task = await habitica_api.create_task(payload)
         await state.clear()
-        if not task.get("text"):
-            await message.answer("Задача создана. Нажми «задания», чтобы обновить список.")
-        else:
-            await message.answer("Задача создана.\n" + format_task(task, data["create_type"]), parse_mode="HTML")
+        if callback.message:
+            if not task.get("text"):
+                await callback.message.answer("Задача создана. Нажми «задания», чтобы обновить список.")
+            else:
+                await callback.message.answer(
+                    "Задача создана.\n" + format_task(task, data["create_type"]),
+                    parse_mode="HTML",
+                )
     except HabiticaError as exc:
-        await _safe_error(message, exc)
+        await _safe_error(callback, exc)
