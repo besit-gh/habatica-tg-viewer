@@ -20,6 +20,7 @@ class TaskForm(StatesGroup):
     create_title = State()
     create_notes = State()
     edit_title = State()
+    search_name = State()
 
 
 async def _safe_error(target: Message | CallbackQuery, exc: Exception) -> None:
@@ -53,26 +54,85 @@ async def tasks_menu(callback: CallbackQuery, state: FSMContext) -> None:
         await callback.message.answer("Выбери тип заданий:", reply_markup=task_types_keyboard())
 
 
-@router.callback_query(F.data.startswith("list:"))
+@router.callback_query(F.data.startswith("list:") | F.data.startswith("page:"))
 async def list_tasks(callback: CallbackQuery, state: FSMContext, habitica_api: HabiticaAPI) -> None:
+    await callback.answer()
+    parts = (callback.data or "").split(":")
+    task_type = parts[1] if len(parts) > 1 else ""
+    try:
+        offset = max(0, int(parts[2])) if parts[0] == "page" and len(parts) == 3 else 0
+    except ValueError:
+        offset = 0
+    if task_type not in VALID_TYPES:
+        return
+    await state.clear()
+    try:
+        all_tasks = await habitica_api.get_tasks(task_type)
+        total = len(all_tasks)
+        tasks = all_tasks[offset:offset + 10]
+        for task in tasks:
+            task["_type"] = task_type
+            task["_id"] = task.get("_id") or task.get("id")
+        if not total:
+            if callback.message:
+                await callback.message.answer(f"В разделе «{task_type_label(task_type)}» пока нет заданий.")
+            return
+        if callback.message:
+            await callback.message.answer(
+                f"{task_type_label(task_type)} — {offset + 1}–{min(offset + len(tasks), total)} из {total}:",
+                reply_markup=task_list_keyboard(tasks, task_type, offset, total),
+            )
+    except HabiticaError as exc:
+        await _safe_error(callback, exc)
+
+
+@router.callback_query(F.data.startswith("search:"))
+async def start_search(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     task_type = (callback.data or "").split(":", 1)[1]
     if task_type not in VALID_TYPES:
         return
     await state.clear()
+    await state.set_state(TaskForm.search_name)
+    await state.update_data(search_type=task_type)
+    if callback.message:
+        await callback.message.answer("Введи часть названия для поиска. Для отмены — /cancel.")
+
+
+@router.message(TaskForm.search_name)
+async def search_tasks(message: Message, state: FSMContext, habitica_api: HabiticaAPI) -> None:
+    query = (message.text or "").strip()
+    if query == "/cancel":
+        await state.clear()
+        await message.answer("Поиск отменён.")
+        return
+    if not query:
+        await message.answer("Введи непустую строку для поиска.")
+        return
+    data = await state.get_data()
+    task_type = data["search_type"]
     try:
-        tasks = await habitica_api.get_tasks(task_type)
-        for task in tasks:
+        all_tasks = await habitica_api.get_tasks(task_type)
+        matches = [task for task in all_tasks if query.casefold() in str(task.get("text", "")).casefold()]
+        await state.clear()
+        if not matches:
+            await message.answer("Совпадений не найдено.")
+            return
+        for task in matches[:15]:
             task["_type"] = task_type
             task["_id"] = task.get("_id") or task.get("id")
-        if not tasks:
-            if callback.message:
-                await callback.message.answer(f"В разделе «{task_type_label(task_type)}» пока нет заданий.")
-            return
-        if callback.message:
-            await callback.message.answer(f"{task_type_label(task_type)} — первые 15 заданий:", reply_markup=task_list_keyboard(tasks))
+        buttons = [
+            [InlineKeyboardButton(text=str(task.get("text") or "Без названия")[:45],
+                                  callback_data=f"task:{task_type}:{task.get('_id')}")]
+            for task in matches[:15]
+        ]
+        buttons.append([InlineKeyboardButton(text="← К списку", callback_data=f"list:{task_type}")])
+        await message.answer(
+            f"Найдено: {len(matches)}. Показаны первые {min(15, len(matches))}.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+        )
     except HabiticaError as exc:
-        await _safe_error(callback, exc)
+        await _safe_error(message, exc)
 
 
 @router.callback_query(F.data.startswith("task:"))
