@@ -12,7 +12,7 @@ from app.keyboards import delete_confirmation_keyboard, task_actions_keyboard, t
 
 router = Router()
 logger = logging.getLogger(__name__)
-VALID_TYPES = {"habits", "dailys", "todos", "rewards"}
+VALID_TYPES = {"habits", "dailys", "todos", "rewards", "completedTodos"}
 
 
 class TaskForm(StatesGroup):
