@@ -80,3 +80,11 @@ def task_filter_keyboard(task_type: str) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Сложная", callback_data=f"filter:{task_type}:priority:2")],
         [InlineKeyboardButton(text="← К списку", callback_data=f"list:{task_type}")],
     ])
+
+
+def profile_sections_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Статы", callback_data="profile:stats"),
+         InlineKeyboardButton(text="Инвентарь", callback_data="profile:inventory")],
+        [InlineKeyboardButton(text="Квест / группа", callback_data="profile:quest")],
+    ])
