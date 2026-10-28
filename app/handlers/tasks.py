@@ -36,7 +36,6 @@ async def _safe_error(target: Message | CallbackQuery, exc: Exception) -> None:
     logger.warning("Habitica task operation failed: %s", type(exc).__name__)
     text = "Habitica API не выполнил операцию. Автоматического повтора нет; обнови данные и проверь состояние задачи."
     if isinstance(target, CallbackQuery):
-        await target.answer("Запрос не выполнен", show_alert=True)
         if target.message:
             await target.message.answer(text)
     else:
@@ -252,7 +251,7 @@ async def complete_task(callback: CallbackQuery, habitica_api: HabiticaAPI) -> N
         result = await habitica_api.score_task(parts[2], "up")
         task = result if isinstance(result, dict) and result.get("text") else await habitica_api.get_task(parts[2])
         if callback.message:
-            await callback.message.answer("Действие выполнено.\\n" + format_task(task, parts[1]), parse_mode="HTML")
+            await callback.message.answer("Действие выполнено.\n" + format_task(task, parts[1]), parse_mode="HTML")
     except HabiticaError as exc:
         await _safe_error(callback, exc)
     finally:
@@ -280,7 +279,11 @@ async def delete_task(callback: CallbackQuery, habitica_api: HabiticaAPI) -> Non
     if len(parts) != 3 or parts[1] not in VALID_TYPES:
         return
     try:
-        await habitica_api.get_task(parts[2])
+        current = await habitica_api.get_task(parts[2])
+        if not task_type_matches(current, parts[1]):
+            if callback.message:
+                await callback.message.answer("Задача изменилась или больше не относится к этому списку. Обнови список.")
+            return
         await habitica_api.delete_task(parts[2])
         if callback.message:
             await callback.message.answer("Задача удалена. Выбери «задания», чтобы обновить список.")
@@ -296,6 +299,10 @@ async def begin_edit(callback: CallbackQuery, state: FSMContext, habitica_api: H
         return
     try:
         task = await habitica_api.get_task(parts[2])
+        if not task_type_matches(task, parts[1]):
+            if callback.message:
+                await callback.message.answer("Задача изменилась или больше не относится к этому списку. Обнови список.")
+            return
         await state.clear()
         await state.set_state(TaskForm.edit_title)
         await state.update_data(task_id=parts[2], task_type=parts[1])
@@ -317,7 +324,11 @@ async def save_edit(message: Message, state: FSMContext, habitica_api: HabiticaA
         return
     data = await state.get_data()
     try:
-        await habitica_api.get_task(data["task_id"])
+        current = await habitica_api.get_task(data["task_id"])
+        if not task_type_matches(current, data["task_type"]):
+            await state.clear()
+            await message.answer("Задача изменилась или больше не относится к этому списку. Обнови список.")
+            return
         task = await habitica_api.update_task(data["task_id"], {"text": title})
         await state.clear()
         if not task.get("text"):
@@ -422,7 +433,7 @@ async def create_with_priority(
                 await callback.message.answer("Задача создана. Нажми «задания», чтобы обновить список.")
             else:
                 await callback.message.answer(
-                    "Задача создана.\\n" + format_task(task, data["create_type"]),
+                    "Задача создана.\n" + format_task(task, data["create_type"]),
                     parse_mode="HTML",
                 )
     except HabiticaError as exc:
