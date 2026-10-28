@@ -19,6 +19,7 @@ from app.keyboards import (
 router = Router()
 logger = logging.getLogger(__name__)
 VALID_TYPES = {"habits", "dailys", "todos", "rewards", "completedTodos"}
+CREATE_TYPES = {"habits": "habit", "dailys": "daily", "todos": "todo", "rewards": "reward"}
 
 
 class TaskForm(StatesGroup):
@@ -225,7 +226,7 @@ async def complete_task(callback: CallbackQuery, habitica_api: HabiticaAPI) -> N
         return
     try:
         current = await habitica_api.get_task(parts[2])
-        if parts[1] == "todos" and current.get("completed"):
+        if parts[1] in {"todos", "dailys", "completedTodos"} and current.get("completed"):
             if callback.message:
                 await callback.message.answer("Задача уже выполнена. Повторное начисление не выполнено.")
             return
@@ -320,7 +321,7 @@ async def create_start(message: Message, state: FSMContext) -> None:
 async def create_type(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     task_type = (callback.data or "").split(":", 1)[1]
-    if task_type not in VALID_TYPES:
+    if task_type not in CREATE_TYPES:
         return
     await state.set_state(TaskForm.create_title)
     await state.update_data(create_type=task_type)
@@ -379,7 +380,7 @@ async def create_with_priority(
             await callback.message.answer("Черновик задачи потерян. Начни создание заново.")
         return
     payload: dict[str, Any] = {
-        "type": data["create_type"],
+        "type": CREATE_TYPES[data["create_type"]],
         "text": data["create_title"],
         "priority": priority,
     }
