@@ -8,6 +8,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from app.formatters import format_task, task_type_label
 from app.habitica_api import HabiticaAPI, HabiticaError
+from app.task_types import CREATE_TYPES, task_type_matches
 from app.keyboards import (
     delete_confirmation_keyboard,
     task_actions_keyboard,
@@ -19,7 +20,6 @@ from app.keyboards import (
 router = Router()
 logger = logging.getLogger(__name__)
 VALID_TYPES = {"habits", "dailys", "todos", "rewards", "completedTodos"}
-CREATE_TYPES = {"habits": "habit", "dailys": "daily", "todos": "todo", "rewards": "reward"}
 
 
 class TaskForm(StatesGroup):
@@ -198,6 +198,10 @@ async def show_task(callback: CallbackQuery, habitica_api: HabiticaAPI) -> None:
         return
     try:
         task = await habitica_api.get_task(parts[2])
+        if not task_type_matches(task, parts[1]):
+            if callback.message:
+                await callback.message.answer("Задача изменилась или больше не относится к этому списку. Обнови список.")
+            return
         if callback.message:
             await callback.message.answer(format_task(task, parts[1]), reply_markup=task_actions_keyboard(parts[2], parts[1]), parse_mode="HTML")
     except HabiticaError as exc:
@@ -225,8 +229,16 @@ async def complete_task(callback: CallbackQuery, habitica_api: HabiticaAPI) -> N
     if len(parts) != 3 or parts[1] not in VALID_TYPES:
         return
     try:
+        if parts[1] in {"rewards", "completedTodos"}:
+            if callback.message:
+                await callback.message.answer("Для этого типа задачи действие недоступно.")
+            return
         current = await habitica_api.get_task(parts[2])
-        if parts[1] in {"todos", "dailys", "completedTodos"} and current.get("completed"):
+        if not task_type_matches(current, parts[1]):
+            if callback.message:
+                await callback.message.answer("Задача изменилась или больше не относится к этому списку. Обнови список.")
+            return
+        if parts[1] in {"todos", "dailys"} and current.get("completed"):
             if callback.message:
                 await callback.message.answer("Задача уже выполнена. Повторное начисление не выполнено.")
             return
@@ -374,7 +386,7 @@ async def create_with_priority(
     if priority not in {0.1, 1.0, 1.5, 2.0}:
         return
     data = await state.get_data()
-    if not data.get("create_type") or not data.get("create_title"):
+    if data.get("create_type") not in CREATE_TYPES or not data.get("create_title"):
         await state.clear()
         if callback.message:
             await callback.message.answer("Черновик задачи потерян. Начни создание заново.")
