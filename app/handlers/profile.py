@@ -30,7 +30,6 @@ async def _send_profile_section(
     except HabiticaError as exc:
         logger.warning("Habitica profile request failed: %s", type(exc).__name__)
         if isinstance(target, CallbackQuery):
-            await target.answer("Не удалось загрузить данные", show_alert=True)
             if target.message:
                 await target.message.answer("Не удалось загрузить данные Habitica. Попробуй позже; автоматического повтора нет.")
         else:
