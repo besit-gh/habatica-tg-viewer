@@ -53,7 +53,7 @@ def task_list_keyboard(
 
 def task_actions_keyboard(task_id: str, task_type: str) -> InlineKeyboardMarkup:
     rows = [[InlineKeyboardButton(text="Отправить карточку", callback_data=f"notify:{task_type}:{task_id}")]]
-    if task_type != "completedTodos":
+    if task_type not in {"completedTodos", "rewards"}:
         rows.append([InlineKeyboardButton(text="Выполнено (+)", callback_data=f"complete:{task_type}:{task_id}")])
         rows.append([InlineKeyboardButton(text="Изменить название", callback_data=f"edit:{task_type}:{task_id}")])
     rows.extend([
