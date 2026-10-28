@@ -45,6 +45,7 @@ def task_list_keyboard(
         navigation.append(InlineKeyboardButton(text="Далее →", callback_data=f"page:{task_type}:{offset + 10}"))
     if navigation:
         rows.append(navigation)
+    rows.append([InlineKeyboardButton(text="Фильтры", callback_data=f"filters:{task_type}")])
     rows.append([InlineKeyboardButton(text="Поиск по названию", callback_data=f"search:{task_type}")])
     rows.append([InlineKeyboardButton(text="← К типам заданий", callback_data="tasks:menu")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -67,3 +68,15 @@ def delete_confirmation_keyboard(task_id: str, task_type: str) -> InlineKeyboard
         InlineKeyboardButton(text="Да, удалить", callback_data=f"delete:{task_type}:{task_id}"),
         InlineKeyboardButton(text="Отмена", callback_data=f"task:{task_type}:{task_id}"),
     ]])
+
+
+def task_filter_keyboard(task_type: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Все", callback_data=f"filter:{task_type}:all")],
+        [InlineKeyboardButton(text="Выполненные", callback_data=f"filter:{task_type}:completed")],
+        [InlineKeyboardButton(text="Не выполненные", callback_data=f"filter:{task_type}:pending")],
+        [InlineKeyboardButton(text="Лёгкая сложность", callback_data=f"filter:{task_type}:priority:1")],
+        [InlineKeyboardButton(text="Средняя сложность", callback_data=f"filter:{task_type}:priority:1.5")],
+        [InlineKeyboardButton(text="Сложная", callback_data=f"filter:{task_type}:priority:2")],
+        [InlineKeyboardButton(text="← К списку", callback_data=f"list:{task_type}")],
+    ])
