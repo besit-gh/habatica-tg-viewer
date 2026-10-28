@@ -1,4 +1,4 @@
-from app.task_types import CREATE_TYPES, LIST_TO_API_TYPE, task_type_matches
+from app.task_types import CREATE_TYPES, task_type_matches
 
 
 def test_creation_uses_singular_habitica_api_types() -> None:
