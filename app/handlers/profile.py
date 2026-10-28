@@ -1,6 +1,7 @@
 import logging
 
 from aiogram import F, Router
+from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from app.formatters import format_profile
@@ -11,7 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 @router.message(F.text == "посмотреть профиль")
-async def profile(message: Message, habitica_api: HabiticaAPI) -> None:
+async def profile(message: Message, state: FSMContext, habitica_api: HabiticaAPI) -> None:
+    await state.clear()
     try:
         user = await habitica_api.get_user()
         await message.answer(format_profile(user), parse_mode="HTML")
