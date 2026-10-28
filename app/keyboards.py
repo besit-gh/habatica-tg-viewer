@@ -1,0 +1,39 @@
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
+
+MAIN_MENU = ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text="посмотреть профиль"), KeyboardButton(text="задания")],
+    [KeyboardButton(text="создать задачу"), KeyboardButton(text="отправить уведомление по задаче")],
+], resize_keyboard=True)
+
+
+def task_types_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Привычки", callback_data="list:habits"), InlineKeyboardButton(text="Ежедневные", callback_data="list:dailys")],
+        [InlineKeyboardButton(text="Разовые", callback_data="list:todos"), InlineKeyboardButton(text="Награды", callback_data="list:rewards")],
+    ])
+
+
+def task_list_keyboard(tasks: list[dict], prefix: str = "task") -> InlineKeyboardMarkup:
+    rows = []
+    for task in tasks[:15]:
+        title = str(task.get("text") or "Без названия").replace("\n", " ")[:45]
+        rows.append([InlineKeyboardButton(text=title, callback_data=f"{prefix}:{task.get('_type', 'todos')}:{task.get('_id') or task.get('id')}")])
+    rows.append([InlineKeyboardButton(text="← К типам заданий", callback_data="tasks:menu")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def task_actions_keyboard(task_id: str, task_type: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Отправить карточку", callback_data=f"notify:{task_type}:{task_id}")],
+        [InlineKeyboardButton(text="Выполнено (+)", callback_data=f"complete:{task_type}:{task_id}")],
+        [InlineKeyboardButton(text="Изменить название", callback_data=f"edit:{task_type}:{task_id}")],
+        [InlineKeyboardButton(text="Удалить…", callback_data=f"deleteask:{task_type}:{task_id}")],
+        [InlineKeyboardButton(text="← К списку", callback_data=f"list:{task_type}")],
+    ])
+
+
+def delete_confirmation_keyboard(task_id: str, task_type: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="Да, удалить", callback_data=f"delete:{task_type}:{task_id}"),
+        InlineKeyboardButton(text="Отмена", callback_data=f"task:{task_type}:{task_id}"),
+    ]])
