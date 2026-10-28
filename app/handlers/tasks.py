@@ -216,6 +216,10 @@ async def notify_task(callback: CallbackQuery, habitica_api: HabiticaAPI) -> Non
         return
     try:
         task = await habitica_api.get_task(parts[2])
+        if not task_type_matches(task, parts[1]):
+            if callback.message:
+                await callback.message.answer("Задача изменилась или больше не относится к этому списку. Обнови список.")
+            return
         if callback.message:
             await callback.message.answer("📌 Карточка задачи\n" + format_task(task, parts[1]), parse_mode="HTML")
     except HabiticaError as exc:
