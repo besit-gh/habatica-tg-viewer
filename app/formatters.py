@@ -49,7 +49,7 @@ def format_inventory(user: dict[str, Any]) -> str:
     items = user.get("items") or user.get("inventory") or {}
     lines = ["<b>Инвентарь Habitica</b>"]
     if not isinstance(items, dict):
-        return "\\n".join(lines + ["Данные инвентаря недоступны в ответе API."])
+        return "\n".join(lines + ["Данные инвентаря недоступны в ответе API."])
     equipment = items.get("gear") or {}
     equipped = equipment.get("equipped") if isinstance(equipment, dict) else None
     if isinstance(equipped, dict):
@@ -67,7 +67,7 @@ def format_inventory(user: dict[str, Any]) -> str:
             lines.append(f"{label}: {len(values)}")
     if len(lines) == 1:
         lines.append("В ответе API нет данных об инвентаре.")
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def format_quest(user: dict[str, Any]) -> str:
@@ -88,4 +88,4 @@ def format_quest(user: dict[str, Any]) -> str:
             lines.append("Активный квест найден, но API не вернул отображаемые поля.")
     else:
         lines.append("Информация об активном квесте не возвращена API.")
-    return "\\n".join(lines)
+    return "\n".join(lines)
