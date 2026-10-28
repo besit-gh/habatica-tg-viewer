@@ -43,3 +43,49 @@ def format_profile(user: dict[str, Any]) -> str:
     if stats.get("class"):
         lines.append(f"Класс: {_escape(str(stats['class']))}")
     return "\n".join(lines)
+
+
+def format_inventory(user: dict[str, Any]) -> str:
+    items = user.get("items") or user.get("inventory") or {}
+    lines = ["<b>Инвентарь Habitica</b>"]
+    if not isinstance(items, dict):
+        return "\\n".join(lines + ["Данные инвентаря недоступны в ответе API."])
+    equipment = items.get("gear") or {}
+    equipped = equipment.get("equipped") if isinstance(equipment, dict) else None
+    if isinstance(equipped, dict):
+        current = [f"{key}: {_escape(str(value))}" for key, value in equipped.items() if value]
+        if current:
+            lines.append("<b>Экипировка</b>")
+            lines.extend(current[:12])
+    for key, label in (("eggs", "Яйца"), ("food", "Еда"), ("hatchingPotions", "Зелья вылупления"),
+                       ("pets", "Питомцы"), ("mounts", "Маунты")):
+        values = items.get(key)
+        if isinstance(values, dict):
+            count = sum(1 for value in values.values() if value)
+            lines.append(f"{label}: {count} видов")
+        elif isinstance(values, list):
+            lines.append(f"{label}: {len(values)}")
+    if len(lines) == 1:
+        lines.append("В ответе API нет данных об инвентаре.")
+    return "\\n".join(lines)
+
+
+def format_quest(user: dict[str, Any]) -> str:
+    party = user.get("party") or {}
+    quest = party.get("quest") if isinstance(party, dict) else None
+    lines = ["<b>Квест / группа</b>"]
+    if isinstance(party, dict) and party.get("name"):
+        lines.append(f"Группа: {_escape(str(party['name']))}")
+    if isinstance(quest, dict):
+        for key, label in (("key", "Квест"), ("name", "Название"), ("type", "Тип"),
+                           ("progress", "Прогресс"), ("boss", "Босс"), ("leader", "Лидер")):
+            value = quest.get(key)
+            if value is not None:
+                if isinstance(value, dict):
+                    value = value.get("name") or value.get("key") or str(value)
+                lines.append(f"{label}: {_escape(str(value))}")
+        if len(lines) == 1:
+            lines.append("Активный квест найден, но API не вернул отображаемые поля.")
+    else:
+        lines.append("Информация об активном квесте не возвращена API.")
+    return "\\n".join(lines)
